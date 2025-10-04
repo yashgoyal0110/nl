@@ -1,0 +1,37 @@
+body {
+  font-family: "Segoe UI", Roboto, sans-serif;
+  margin: 0;
+  background: #1e1e1e;
+  color: #ddd;
+}
+
+header {
+  background: #007acc;
+  color: white;
+  padding: 12px;
+}
+
+h1 {
+  margin: 0;
+  font-size: 18px;
+}
+
+main {
+  padding: 10px;
+  max-height: calc(100vh - 50px);
+  overflow: auto;
+}
+
+/* Override diff2html light theme */
+.d2h-file-wrapper {
+  background: #252526 !important;
+  border: none !important;
+}
+
+.d2h-code-side-line {
+  background: #1e1e1e !important;
+}
+
+.d2h-code-line-ctn {
+  font-size: 13px !important;
+}

@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Diff Viewer - {{BRANCH}}</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/diff2html/bundles/css/diff2html.min.css" />
+  <link rel="stylesheet" href="custom.css" />
+  <script src="https://cdn.jsdelivr.net/npm/diff2html/bundles/js/diff2html-ui.min.js"></script>
+</head>
+<body>
+  <header>
+    <h1>Branch: {{BRANCH}}</h1>
+  </header>
+  <main id="diff">
+    {{DIFF_CONTENT}}
+  </main>
+</body>
+</html>
