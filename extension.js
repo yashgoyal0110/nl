@@ -5,18 +5,17 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 
-
 let timer;
 
 export function activate(context) {
     vscode.window.showInformationMessage('Cookie-Lick Watcher Activated!');
 
-    // Run every 15 seconds (testing)
+    // Run every 15 seconds (for testing)
     timer = setInterval(() => {
         runCheck();
     }, 15 * 1000);
 
-    let disposable = vscode.commands.registerCommand('extension.runCheckNow', runCheck);
+    const disposable = vscode.commands.registerCommand('extension.runCheckNow', runCheck);
     context.subscriptions.push(disposable);
 }
 
@@ -30,82 +29,78 @@ async function runCheck() {
     try {
         execSync('git fetch upstream', { cwd: repoPath });
 
-        const branch = execSync('git rev-parse --abbrev-ref HEAD', { cwd: repoPath })
-            .toString().trim();
-
+        const branch = execSync('git rev-parse --abbrev-ref HEAD', { cwd: repoPath }).toString().trim();
         const mainBranch =
             execSync('git remote show upstream', { cwd: repoPath })
                 .toString()
                 .match(/HEAD branch: (\S+)/)?.[1] || 'main';
 
+        // Collect diffs
         const committedDiff = execSync(`git diff upstream/${mainBranch}..HEAD`, { cwd: repoPath }).toString();
         const stagedDiff = execSync('git diff --cached', { cwd: repoPath }).toString().trim();
         const unstagedDiff = execSync('git diff', { cwd: repoPath }).toString().trim();
+
+        if (!committedDiff && !stagedDiff && !unstagedDiff) {
+            vscode.window.showInformationMessage("No changes detected.");
+            return;
+        }
 
         const fullDiff =
             (committedDiff ? `# Committed changes\n${committedDiff}\n` : '') +
             (stagedDiff ? `# Staged changes\n${stagedDiff}\n` : '') +
             (unstagedDiff ? `# Unstaged changes\n${unstagedDiff}\n` : '');
 
-        if (!fullDiff.trim()) {
-            vscode.window.showInformationMessage("No changes detected.");
-            return;
-        }
-
-        // Render pretty HTML
+        // Render HTML using Diff2Html
         const html = Diff2Html.html(fullDiff, {
             matching: 'lines',
             outputFormat: 'side-by-side'
         });
 
-        // Save HTML file in repo for gh-pages
-        const outDir = path.join(repoPath, 'gh-pages-diffs');
+        // Template for snapshot with dark theme
+        const template = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Diff Snapshot - ${branch}</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/diff2html/bundles/css/diff2html.min.css" />
+<style>
+body { font-family: "Segoe UI", Roboto, sans-serif; margin:0; background:#1e1e1e; color:#ddd; }
+header { background:#007acc; color:white; padding:12px; }
+h1 { margin:0; font-size:18px; }
+main { padding:10px; max-height:100vh; overflow:auto; }
+.d2h-file-wrapper { background:#252526 !important; border:none !important; }
+.d2h-code-side-line { background:#1e1e1e !important; }
+.d2h-code-line-ctn { font-size:13px !important; }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/diff2html/bundles/js/diff2html-ui.min.js"></script>
+</head>
+<body>
+<header><h1>Branch: ${branch}</h1></header>
+<main>${html}</main>
+</body>
+</html>
+`;
+
+        // Save HTML snapshot locally
+        const outDir = path.join(repoPath, '.cookie-lick-watcher');
         if (!fs.existsSync(outDir)) fs.mkdirSync(outDir);
-        const filename = `diff-${branch}-${Date.now()}.html`;
-        const filePath = path.join(outDir, filename);
-        
-               const __filename = fileURLToPath(import.meta.url);
-        const __dirname = path.dirname(__filename);
+        const filePath = path.join(outDir, `diff-${branch}-${Date.now()}.html`);
+        fs.writeFileSync(filePath, template);
 
-        const templatePath = path.join(__dirname, 'diff-template.html');
-        const template = fs.readFileSync(templatePath, 'utf8');
+        // Open snapshot in default system browser
+        vscode.env.openExternal(vscode.Uri.file(filePath));
 
-        const finalHtml = template
-            .replace('{{BRANCH}}', branch)
-            .replace('{{DIFF_CONTENT}}', html);
+        vscode.window.showInformationMessage(`Diff snapshot opened in browser: ${filePath}`);
 
-        fs.writeFileSync(filePath, finalHtml);
-
-        // Commit & push to gh-pages branch
-        execSync(`git checkout gh-pages`, { cwd: repoPath });
-        execSync(`cp ${filePath} .`, { cwd: repoPath }); // copy file into branch root
-        execSync(`git add ${filename}`, { cwd: repoPath });
-        execSync(`git commit -m "Add diff snapshot ${filename}" || echo "No commit"`, { cwd: repoPath });
-        execSync(`git push origin gh-pages`, { cwd: repoPath });
-        execSync(`git checkout ${branch}`, { cwd: repoPath }); // switch back
-
-        // Construct public URL
-        const config = vscode.workspace.getConfiguration('cookieLickWatcher');
-        const owner = config.get('repoOwner');
-        const repo = config.get('repoName');
-        const publicUrl = `https://${owner}.github.io/${repo}/${filename}`;
-
-        // Open in VS Code panel
-        const panel = vscode.window.createWebviewPanel(
-            'diffViewer',
-            `Diff Snapshot (${branch})`,
-            vscode.ViewColumn.Beside,
-            { enableScripts: true }
-        );
-        panel.webview.html = finalHtml;
-
-        vscode.window.showInformationMessage(`Diff snapshot hosted at: ${publicUrl}`);
-
-        // Post to GitHub issue
+        // Post GitHub comment with copyable path (maintainers cannot open this locally)
         const summary = `
 ### 🚀 Progress Update (Branch: ${branch})
-🔗 [View Diff Snapshot](${publicUrl})
-        `;
+- Committed changes: ${committedDiff ? '✅' : '❌'}
+- Staged changes: ${stagedDiff ? '✅' : '❌'}
+- Unstaged changes: ${unstagedDiff ? '✅' : '❌'}
+📂 Local snapshot path: \`${filePath}\` (open in browser locally)
+`;
         await postToGitHub(summary, branch);
 
     } catch (err) {
