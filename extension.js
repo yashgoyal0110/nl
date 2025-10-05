@@ -429,7 +429,7 @@ async function runCheck() {
     if (!fs.existsSync(outDir)) fs.mkdirSync(outDir);
     const filePath = path.join(outDir, `diff-${branch}-${Date.now()}.html`);
     fs.writeFileSync(filePath, template);
-    vscode.env.openExternal(vscode.Uri.file(filePath));
+    // vscode.env.openExternal(vscode.Uri.file(filePath));
 
     // --- Per-commit history ---
     const perCommitStatsRaw = execSync(`git log upstream/${mainBranch}..HEAD --pretty=format:"%h|%s|%ci" --numstat`, { cwd: repoPath }).toString().trim();
@@ -505,6 +505,7 @@ async function runCheck() {
     const savedInfo = await doc.save();
     const docId = savedInfo._id;
 
+
     const summary = `
   ### 🚀 Progress Update (Branch: ${branch})
 
@@ -528,6 +529,8 @@ async function runCheck() {
   - Lines added: ${unstagedStats.added}  
   - Lines deleted: ${unstagedStats.deleted}  
   - New files: ${unstagedStats.newFiles}
+
+  
 
   📂 Local snapshot path: \`${filePath}\` (open in browser locally)
 

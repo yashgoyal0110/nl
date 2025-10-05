@@ -7,7 +7,7 @@
       "request": "launch",
       "args": [
         "--extensionDevelopmentPath=/Users/yashagrawal/Desktop/nl/cookie-lick-watcher",
-        "/Users/yashagrawal/Desktop/panto"
+        "/Users/yashagrawal/Desktop/Stock-Pitch-Generator"
       ],
       "outFiles": ["${workspaceFolder}/out/**/*.js"]
     }
